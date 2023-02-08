@@ -2,10 +2,12 @@
 
 The goal of this project was to understand how the GIF format is structured.
 
-The [source code](src/gif.js) get a GIF file, parse it, decompress each images and render it on a canvas element.
+The [source code](gif.js) gets a GIF file, parse it, decompress each images and render it on a canvas element.
 
-> **Warning**:
-> Please note this project is for educational purpose only. The performances are **probably bad** and the feature set is **incomplete**.
+> **Warning**
+>
+> Please note this project is for educational purpose only.  
+> The performances are **probably bad** and the feature set is **incomplete**.
 
 Great ressources:
 
