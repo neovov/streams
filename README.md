@@ -3,6 +3,7 @@
 This repository hosts the projects I do on [my Twitch channel](https://twitch.tv/neovov):
 
 1. [How the GIF format works](gif/)
+2. [How the WAV format works](wav/)
 
 > **Warning**
 >
