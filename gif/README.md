@@ -9,7 +9,7 @@ The [source code](gif.js) gets a GIF file, parse it, decompress each images and 
 > Please note this project is for educational purpose only.  
 > The performances are **probably bad** and the feature set is **incomplete**.
 
-Great ressources:
+Great resources:
 
 - [GIF Specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt)
 - [GIF on Wikipedia](https://en.wikipedia.org/wiki/GIF)
