@@ -1,0 +1,9 @@
+{
+	"files.exclude": {
+		"**/.eslint*": true,
+		"**/.git": true,
+		"**/.vscode": true,
+		"**/package*": true
+	},
+	"git.openRepositoryInParentFolders": "never"
+}

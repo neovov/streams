@@ -1,8 +1,5 @@
-const canvas = document.getElementById('canvas');
-const context = canvas.getContext('2d', {willReadFrequently: true});
-
-const response = await fetch('nyan.gif');
-const bytes = await response.arrayBuffer();
+import {toASCII, toHex} from './utilities.js';
+import Reader from './Reader.js';
 
 /**
  * See GIF specification:
@@ -28,78 +25,13 @@ function objectToRGB(object) {
 	return `rgb(${object.r} ${object.g} ${object.b})`;
 }
 
-function toASCII(number) {
-	return String.fromCharCode(number);
-}
-
-function toBin(number, padded = true) {
-	return `0b${number.toString(2).padStart(padded ? 8 : 0, '0')}`;
-}
-
-function toHex(number, padded = true) {
-	return `0x${number.toString(16).padStart(padded ? 2 : 0, '0')}`;
-}
-
 function toUnsigned([a, b]) {
 	return (b << 8) | a;
 }
 
 /**
- * The reader class will help yielding bytes from a buffer.
- * It'll allow to rewind the pointer.
+ * “Parser”
  */
-
-class Reader {
-	#bytes;
-	#iterator;
-	#offset = 0;
-
-	constructor(bytes) {
-		this.#bytes = new Uint8Array(bytes);
-	}
-
-	get bytes() {
-		return this.#bytes;
-	}
-
-	*#getIterator() {
-		for (; this.#offset < this.#bytes.length; ) {
-			yield this.#bytes[this.#offset++];
-		}
-	}
-
-	get offset() {
-		return this.#offset;
-	}
-
-	read(bytes = 1) {
-		this.#iterator ||= this.#getIterator();
-
-		if (bytes > 1) {
-			const view = new Uint8Array(this.#bytes.buffer, this.#offset, bytes);
-			this.#offset += bytes;
-
-			return Array.from(view);
-		}
-
-		const {done, value} = this.#iterator.next();
-		if (done) throw new Error('End of buffer');
-		return value;
-	}
-
-	rewind(bytes = 1) {
-		this.#offset -= bytes;
-	}
-
-	get status() {
-		const remaining = this.#bytes.length - this.#offset;
-		return this.#offset !== this.#bytes.length
-			? `Stopped reading at offset ${this.#offset}, still ${remaining} ${
-					remaining > 1 ? 'bytes' : 'byte'
-			  } to read.`
-			: 'Finished reading.';
-	}
-}
 
 function assertExtension(reader, LABEL) {
 	const [introducer, label] = reader.read(2);
@@ -491,23 +423,9 @@ function parseTrailer(reader) {
 	}
 }
 
-const cache = new Map(); // Prepare a cache to store rendered images so we don't have to re-render them
-const reader = new Reader(bytes);
-const gif = parseGIFDataStream(reader);
-const images = gif.data.filter((d) => d.rendering);
-let currentImageIndex = 0;
-
-console.info(reader.status);
-console.log('Parsed:', gif);
-
-const {backgroundColorIndex, globalColorTable, height, width} =
-	gif.logicalScreen;
-
-// Set the canvas with the GIF's size and background color
-canvas.width = width;
-canvas.height = height;
-context.fillStyle = objectToRGB(globalColorTable[backgroundColorIndex]);
-context.fillRect(0, 0, width, height);
+/**
+ * “App”
+ */
 
 // Convert an array of decompressed color indexes to an array of RGBA values
 function arrayToImageData(data, {image}) {
@@ -680,6 +598,30 @@ function render(image) {
 	cache.set(image, imageData);
 	return render(image);
 }
+
+const canvas = document.getElementById('canvas');
+const context = canvas.getContext('2d', {willReadFrequently: true});
+
+const response = await fetch('nyan.gif');
+const bytes = await response.arrayBuffer();
+
+const cache = new Map(); // Prepare a cache to store rendered images so we don't have to re-render them
+const reader = new Reader(bytes);
+const gif = parseGIFDataStream(reader);
+const images = gif.data.filter((d) => d.rendering);
+let currentImageIndex = 0;
+
+console.info(reader.status);
+console.log('Parsed:', gif);
+
+const {backgroundColorIndex, globalColorTable, height, width} =
+	gif.logicalScreen;
+
+// Set the canvas with the GIF's size and background color
+canvas.width = width;
+canvas.height = height;
+context.fillStyle = objectToRGB(globalColorTable[backgroundColorIndex]);
+context.fillRect(0, 0, width, height);
 
 if (images.length > 1) {
 	loop();
