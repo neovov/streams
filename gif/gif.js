@@ -25,16 +25,12 @@ function objectToRGB(object) {
 	return `rgb(${object.r} ${object.g} ${object.b})`;
 }
 
-function toUnsigned([a, b]) {
-	return (b << 8) | a;
-}
-
 /**
  * “Parser”
  */
 
 function assertExtension(reader, LABEL) {
-	const [introducer, label] = reader.read(2);
+	const [introducer, label] = reader.getBytes(2);
 
 	if (introducer !== EXTENSION_INTRODUCER)
 		throw new Error(
@@ -53,25 +49,25 @@ function parseApplicationExtension(reader) {
 	assertExtension(reader, APPLICATION_EXTENSION_LABEL);
 	const output = {extension: APPLICATION_EXTENSION_LABEL};
 
-	const blockSize = reader.read();
+	const blockSize = reader.getUint8();
 	if (blockSize !== 11)
 		throw new Error(
 			`Block size for application extension should be 11 bytes but got ${blockSize}`
 		);
 
-	const applicationIdentifier = reader.read(8).map(toASCII).join('');
-	const applicationAutenticationCode = reader.read(3);
+	const applicationIdentifier = reader.getBytes(8).map(toASCII).join('');
+	const applicationAutenticationCode = reader.getBytes(3);
 	const applicationData = [];
 
-	let data = reader.read();
+	let data = reader.getUint8();
 	while (data !== EXTENSION_INTRODUCER) {
 		applicationData.push(data);
-		data = reader.read();
+		data = reader.getUint8();
 	}
 
 	if (applicationData[applicationData.length - 1] === BLOCK_TERMINATOR) {
 		applicationData.pop();
-		reader.rewind();
+		reader.offset--;
 	}
 
 	return {
@@ -88,7 +84,7 @@ function parseColorTable(reader, sizeOfColorTable) {
 
 	const count = 3 * Math.pow(2, sizeOfColorTable + 1);
 	for (let i = 0; i < count; i += 3) {
-		const [r, g, b] = reader.read(3);
+		const [r, g, b] = reader.getBytes(3);
 		colorTable.push({r, g, b});
 	}
 
@@ -100,17 +96,17 @@ function parseCommentExtension(reader) {
 
 	const blocks = [];
 	const output = {extension: COMMENT_EXTENSION_LABEL};
-	let blockSize = reader.read();
+	let blockSize = reader.getUint8();
 
 	while (blockSize !== BLOCK_TERMINATOR) {
 		const {offset} = reader;
 		blocks.push({
-			data: reader.read(blockSize).map(toASCII).join(''),
+			data: reader.getBytes(blockSize).map(toASCII).join(''),
 			length: blockSize,
 			offset,
 		});
 
-		blockSize = reader.read();
+		blockSize = reader.getUint8();
 	}
 
 	return {
@@ -123,9 +119,9 @@ function parseData(reader) {
 	const data = [];
 
 	while (true) {
-		if (reader.offset >= reader.bytes.length - 2) break;
-		const [introducer, label] = reader.read(2);
-		reader.rewind(2);
+		if (reader.remaining <= 2) break;
+		const [introducer, label] = reader.getBytes(2);
+		reader.offset -= 2;
 
 		if (introducer === IMAGE_SEPARATOR) {
 			data.push(parseGraphicBlock(reader));
@@ -167,8 +163,8 @@ function parseGIFDataStream(reader) {
 }
 
 function parseGraphicBlock(reader) {
-	const byte = reader.read(); // Can be either an EXTENSION_INTRODUCER or an IMAGE_SEPARATOR
-	reader.rewind();
+	const byte = reader.getUint8(); // Can be either an EXTENSION_INTRODUCER or an IMAGE_SEPARATOR
+	reader.offset--;
 
 	const output =
 		byte === EXTENSION_INTRODUCER ? parseGraphicControlExtension(reader) : {};
@@ -180,22 +176,22 @@ function parseGraphicControlExtension(reader) {
 	assertExtension(reader, GRAPHIC_CONTROL_EXTENSION_LABEL);
 	const output = {extension: GRAPHIC_CONTROL_EXTENSION_LABEL};
 
-	const blockSize = reader.read();
+	const blockSize = reader.getUint8();
 	if (blockSize !== 4)
 		throw new Error(
 			`Block size for graphic control extension should be 4 bytes but got ${blockSize}`
 		);
 
-	const packed = reader.read();
+	const packed = reader.getUint8();
 	// const reserved = packed >> 5;
 	const disposalMethod = (packed & 0b0001_1100) >> 2;
 	const userInputFlag = Boolean((packed & 0b0010) >> 1);
 	const transparentColorFlag = Boolean(packed & 0b0001); // 1
 
-	const delayTime = toUnsigned(reader.read(2));
-	const transparentColorIndex = reader.read();
+	const delayTime = reader.getUint16(Reader.LITTE);
+	const transparentColorIndex = reader.getUint8();
 
-	const terminator = reader.read();
+	const terminator = reader.getUint8();
 	if (terminator !== BLOCK_TERMINATOR)
 		throw new Error(
 			`A graphic control extension should finish with a block terminator (${BLOCK_TERMINATOR}) but got ${toHex(
@@ -214,8 +210,8 @@ function parseGraphicControlExtension(reader) {
 }
 
 function parseGraphicRenderingBlock(reader) {
-	const byte = reader.read();
-	reader.rewind();
+	const byte = reader.getUint8();
+	reader.offset--;
 
 	if (byte === EXTENSION_INTRODUCER) {
 		return parsePlainTextExtension(reader);
@@ -233,8 +229,8 @@ function parseGraphicRenderingBlock(reader) {
 }
 
 function parseHeader(reader) {
-	const signature = reader.read(3).map(toASCII).join('');
-	const version = reader.read(3).map(toASCII).join('');
+	const signature = reader.getBytes(3).map(toASCII).join('');
+	const version = reader.getBytes(3).map(toASCII).join('');
 
 	if (signature !== 'GIF')
 		throw new Error(`Bad signature: ${signature} (expected: GIF)`);
@@ -244,22 +240,22 @@ function parseHeader(reader) {
 }
 
 function parseImageData(reader) {
-	const LZWMinimumCodeSize = reader.read();
+	const LZWMinimumCodeSize = reader.getUint8();
 
 	const blocks = [];
-	let blockSize = reader.read();
+	let blockSize = reader.getUint8();
 	let total = 0;
 
 	while (blockSize !== BLOCK_TERMINATOR) {
 		const {offset} = reader;
 		blocks.push({
-			data: reader.read(blockSize),
+			data: reader.getBytes(blockSize),
 			length: blockSize,
 			offset,
 		});
 
 		total += blockSize;
-		blockSize = reader.read();
+		blockSize = reader.getUint8();
 	}
 
 	const buffer = new Uint8Array(total);
@@ -278,7 +274,7 @@ function parseImageData(reader) {
 }
 
 function parseImageDescriptor(reader) {
-	const separator = reader.read();
+	const separator = reader.getUint8();
 	if (separator !== IMAGE_SEPARATOR)
 		throw new Error(
 			`Expected an image separator (${toHex(IMAGE_SEPARATOR)}) but got ${toHex(
@@ -286,12 +282,12 @@ function parseImageDescriptor(reader) {
 			)}`
 		);
 
-	const imageLeftPosition = toUnsigned(reader.read(2));
-	const imageTopPosition = toUnsigned(reader.read(2));
-	const imageWidth = toUnsigned(reader.read(2));
-	const imageHeight = toUnsigned(reader.read(2));
+	const imageLeftPosition = reader.getUint16();
+	const imageTopPosition = reader.getUint16();
+	const imageWidth = reader.getUint16();
+	const imageHeight = reader.getUint16();
 
-	const packed = reader.read();
+	const packed = reader.getUint8();
 	const localColorTableFlag = Boolean(packed >> 7);
 	const interlaceFlag = Boolean((packed & 0b0100_0000) >> 6);
 	const sortFlag = Boolean((packed & 0b0010_0000) >> 5);
@@ -326,17 +322,17 @@ function parseLogicalScreen(reader) {
 }
 
 function parseLogicalScreenDescriptor(reader) {
-	const width = toUnsigned(reader.read(2));
-	const height = toUnsigned(reader.read(2));
+	const width = reader.getUint16();
+	const height = reader.getUint16();
 
-	const packed = reader.read();
+	const packed = reader.getBytes(1);
 	const globalColorTableFlag = Boolean(packed >> 7);
 	const colorResolution = (packed & 0b0111_0000) >> 4;
 	const sortFlag = Boolean((packed & 0b1000) >> 3);
 	const sizeOfGlobalColorTable = packed & 0b0111;
 
-	const backgroundColorIndex = reader.read();
-	const pixelAspectRatio = reader.read();
+	const backgroundColorIndex = reader.getUint8();
+	const pixelAspectRatio = reader.getUint8();
 
 	return {
 		backgroundColorIndex,
@@ -354,33 +350,33 @@ function parsePlainTextExtension(reader) {
 	assertExtension(reader, PLAIN_TEXT_EXTENSION_LABEL);
 	const output = {extension: PLAIN_TEXT_EXTENSION_LABEL};
 
-	let blockSize = reader.read();
+	let blockSize = reader.getUint8();
 	if (blockSize !== 12)
 		throw new Error(
 			`Block size for plain text extension should be 12 bytes but got ${blockSize}`
 		);
 
-	const textGridLeftPosition = toUnsigned(reader.read(2));
-	const textGridTopPosition = toUnsigned(reader.read(2));
-	const textWidthTopPosition = toUnsigned(reader.read(2));
-	const textHeightTopPosition = toUnsigned(reader.read(2));
-	const characterCellWidth = reader.read();
-	const characterCellHeight = reader.read();
-	const textForegroundColorIndex = reader.read();
-	const textBackgroundColorIndex = reader.read();
+	const textGridLeftPosition = reader.getUint16();
+	const textGridTopPosition = reader.getUint16();
+	const textWidthTopPosition = reader.getUint16();
+	const textHeightTopPosition = reader.getUint16();
+	const characterCellWidth = reader.getUint8();
+	const characterCellHeight = reader.getUint8();
+	const textForegroundColorIndex = reader.getUint8();
+	const textBackgroundColorIndex = reader.getUint8();
 
 	const blocks = [];
-	blockSize = reader.read();
+	blockSize = reader.getUint8();
 
 	while (blockSize !== BLOCK_TERMINATOR) {
 		const {offset} = reader;
 		blocks.push({
-			data: reader.read(blockSize),
+			data: reader.getBytes(blockSize),
 			length: blockSize,
 			offset,
 		});
 
-		blockSize = reader.read();
+		blockSize = reader.getUint8();
 	}
 
 	return {
@@ -415,7 +411,7 @@ function parseTableBasedImage(reader) {
 }
 
 function parseTrailer(reader) {
-	const trailer = reader.read();
+	const trailer = reader.getUint8();
 	if (trailer !== TRAILER_LABEL) {
 		throw new Error(
 			`Bad trailer: ${toHex(trailer)} (expected: ${toHex(TRAILER_LABEL)})`
@@ -606,7 +602,7 @@ const response = await fetch('nyan.gif');
 const bytes = await response.arrayBuffer();
 
 const cache = new Map(); // Prepare a cache to store rendered images so we don't have to re-render them
-const reader = new Reader(bytes);
+const reader = new Reader(bytes, {endianness: Reader.LITTLE});
 const gif = parseGIFDataStream(reader);
 const images = gif.data.filter((d) => d.rendering);
 let currentImageIndex = 0;

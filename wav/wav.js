@@ -33,29 +33,14 @@ const KEY_FOR_INFO_CHUNK = {
 };
 
 /**
- * Utility functions
- */
-
-function toInt16(array) {
-	return new DataView(new Uint8Array(array).buffer).getInt16(0, true);
-}
-
-function toUint16(array) {
-	return new DataView(new Uint8Array(array).buffer).getUint16(0, true);
-}
-
-function toUint32(array) {
-	return new DataView(new Uint8Array(array).buffer).getUint32(0, true);
-}
-
-/**
  * “Parser”
  */
 
 function parseDataChunk(reader) {
-	const ckID = reader.read(4).map(toASCII).join('');
-	const ckSize = toUint32(reader.read(4));
-	const data = reader.read(ckSize);
+	const ckID = reader.getBytes(4).map(toASCII).join('');
+	const ckSize = reader.getUint32();
+	const data = new Uint8Array(reader.buffer, reader.offset, ckSize);
+	reader.offset += ckSize;
 
 	if (ckID !== 'data')
 		throw new Error(`Chunk ID should be 'data' but got ${ckID}`);
@@ -68,17 +53,17 @@ function parseDataChunk(reader) {
 }
 
 function parseFormatChunk(reader) {
-	const ckID = reader.read(4).map(toASCII).join('');
-	const ckSize = toUint32(reader.read(4));
+	const ckID = reader.getBytes(4).map(toASCII).join('');
+	const ckSize = reader.getUint32();
 
 	if (ckID !== 'fmt ')
 		throw new Error(`Chunk ID should be 'fmt ' but got ${ckID}`);
 
-	const wFormatTag = toUint16(reader.read(2));
-	const wChannels = toUint16(reader.read(2));
-	const dwSamplesPerSec = toUint32(reader.read(4));
-	const dwAvgBytesPerSec = toUint32(reader.read(4));
-	const wBlockAlign = toUint16(reader.read(2));
+	const wFormatTag = reader.getUint16();
+	const wChannels = reader.getUint16();
+	const dwSamplesPerSec = reader.getUint32();
+	const dwAvgBytesPerSec = reader.getUint32();
+	const wBlockAlign = reader.getUint16();
 
 	const output = {
 		chunk: ckID,
@@ -92,16 +77,16 @@ function parseFormatChunk(reader) {
 	};
 
 	if (wFormatTag === WAVE_FORMAT_PCM) {
-		output.wBitsPerSample = toUint16(reader.read(2));
+		output.wBitsPerSample = reader.getUint16();
 	}
 
 	return output;
 }
 
 function parseINFOChunk(reader) {
-	const ckID = reader.read(4).map(toASCII).join('');
-	const ckSize = toUint32(reader.read(4));
-	const content = reader.read(ckSize).filter(Boolean).map(toASCII).join('');
+	const ckID = reader.getBytes(4).map(toASCII).join('');
+	const ckSize = reader.getUint32();
+	const content = reader.getBytes(ckSize).filter(Boolean).map(toASCII).join('');
 	const key = KEY_FOR_INFO_CHUNK[ckID];
 
 	if (!key) throw new Error(`Unknown INFO chunk: ${ckID}`);
@@ -116,18 +101,21 @@ function parseINFOChunk(reader) {
 
 function parseLISTChunk(reader) {
 	const chunks = [];
-	const ckID = reader.read(4).map(toASCII).join('');
-	const ckSize = toUint32(reader.read(4));
-	const listType = reader.read(4).map(toASCII).join('');
-	const subReader = new Reader(reader.read(ckSize - 4));
+	const ckID = reader.getBytes(4).map(toASCII).join('');
+	const ckSize = reader.getUint32();
+	const listType = reader.getBytes(4).map(toASCII).join('');
+	const subReader = reader.clone({
+		length: ckSize - 4,
+		offset: reader.offset,
+	});
+	reader.offset += ckSize - 4;
 
 	if (ckID !== 'LIST')
 		throw new Error(`Chunk ID should be 'LIST' but got ${ckID}`);
 
 	switch (listType) {
 		case 'INFO':
-			while (subReader.offset < subReader.bytes.length)
-				chunks.push(parseINFOChunk(subReader));
+			while (subReader.remaining) chunks.push(parseINFOChunk(subReader));
 			break;
 
 		default:
@@ -143,9 +131,9 @@ function parseLISTChunk(reader) {
 }
 
 function parseRIFFChunk(reader) {
-	const ckID = reader.read(4).map(toASCII).join('');
-	const ckSize = toUint32(reader.read(4));
-	const formType = reader.read(4).map(toASCII).join('');
+	const ckID = reader.getBytes(4).map(toASCII).join('');
+	const ckSize = reader.getUint32();
+	const formType = reader.getBytes(4).map(toASCII).join('');
 
 	if (ckID !== 'RIFF')
 		throw new Error(`Chunk ID should be 'RIFF' but got ${ckID}`);
@@ -159,10 +147,10 @@ function parseRIFFChunk(reader) {
 
 function parseSubChunk(reader) {
 	let output = {};
-	while (reader.offset < reader.bytes.length) {
+	while (reader.remaining > 4) {
 		// Peek next chunk ID in order to use the right parsing function
-		const nextChunkID = reader.read(4).map(toASCII).join('');
-		reader.rewind(4);
+		const nextChunkID = reader.getBytes(4).map(toASCII).join('');
+		reader.offset -= 4;
 
 		switch (nextChunkID) {
 			case 'data': {
@@ -188,7 +176,7 @@ function parseSubChunk(reader) {
 
 			default:
 				// Ignore unknown chunk ID
-				reader.read(4);
+				reader.offset += 4;
 				continue;
 		}
 	}
@@ -226,7 +214,7 @@ function parseWAVDataStream(reader) {
  */
 
 function parse(bytes) {
-	const reader = new Reader(bytes);
+	const reader = new Reader(bytes, {endianness: Reader.LITTLE});
 	const parsed = parseWAVDataStream(reader);
 
 	console.info(reader.status);
@@ -260,10 +248,15 @@ function render(parsed) {
 function samplesToFloat(samples) {
 	const output = {l: [], r: []};
 	const MAX = (1 << 16) / 2;
+	const view = new DataView(
+		samples.buffer,
+		samples.bytesOffset,
+		samples.byteLength
+	);
 
 	for (let i = 0; i < samples.length; i += 4) {
-		const l = toInt16(samples.slice(i, i + 2));
-		const r = toInt16(samples.slice(i + 2, i + 4));
+		const l = view.getInt16(i, true);
+		const r = view.getInt16(i + 2, true);
 		output.l.push(l / MAX); // Normalize to floats (-1.0, 1.0)
 		output.r.push(r / MAX);
 	}

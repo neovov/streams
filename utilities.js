@@ -1,3 +1,24 @@
+const KB = 1024;
+const MB = KB * 1024;
+const GB = MB * 1024;
+
+export function formatBytesToHumanReadable(bytes) {
+	if (bytes < KB) {
+		return `${bytes} bytes`;
+	} else if (bytes < MB) {
+		return `${Math.floor(bytes / KB)} kB`;
+	} else if (bytes < GB) {
+		return `${Math.floor(bytes / MB)} MB`;
+	} else {
+		return bytes;
+	}
+}
+
+export function stringToHTML(string) {
+	const {body} = new DOMParser().parseFromString(string, 'text/html');
+	return body.children.length > 1 ? body.children : body.children[0];
+}
+
 export function toASCII(number) {
 	return String.fromCharCode(number);
 }
