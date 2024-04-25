@@ -1,0 +1,89 @@
+@0 BCX Header (8)
+---
+@8 ModelPart Vertices (116)
+@124 ModelData Polygon (312)
+@436 ModelData Texture Coords (0)
+---
+@436 ModelPart Vertices (260)
+@696 ModelData Polygon (636)
+@1332 ModelData Texture Coords (0)
+---
+@1332 ModelPart Vertices (724)
+@2056 ModelData Polygon (2748)
+@4804 ModelData Texture Coords (28)
+@4832 ? (8)
+---
+@4840 ModelPart Vertices (132)
+@4972 ModelData Polygon (340)
+@5312 ModelData Texture Coords (0)
+---
+@5312 ModelPart Vertices (132)
+@5444 ModelData Polygon (280)
+@5724 ModelData Texture Coords (0)
+---
+@5724 ModelPart Vertices (68)
+@5792 ModelData Polygon (120)
+@5912 ModelData Texture Coords (0)
+---
+@5912 ModelPart Vertices (132)
+@6044 ModelData Polygon (340)
+@6384 ModelData Texture Coords (0)
+---
+@6384 ModelPart Vertices (132)
+@6516 ModelData Polygon (280)
+@6796 ModelData Texture Coords (0)
+---
+@6796 ModelPart Vertices (68)
+@6864 ModelData Polygon (120)
+@6984 ModelData Texture Coords (0)
+---
+@6984 ModelPart Vertices (84)
+@7068 ModelData Polygon (208)
+@7276 ModelData Texture Coords (0)
+---
+@7276 ModelPart Vertices (172)
+@7448 ModelData Polygon (344)
+@7792 ModelData Texture Coords (0)
+---
+@7792 ModelPart Vertices (84)
+@7876 ModelData Polygon (172)
+@8048 ModelData Texture Coords (0)
+---
+@8048 ModelPart Vertices (84)
+@8132 ModelData Polygon (208)
+@8340 ModelData Texture Coords (0)
+---
+@8340 ModelPart Vertices (172)
+@8512 ModelData Polygon (344)
+@8856 ModelData Texture Coords (0)
+---
+@8856 ModelPart Vertices (84)
+@8940 ModelData Polygon (172)
+@9112 ModelData Texture Coords (0)
+---
+@9112 AnimationData (184?)
+@9296 AnimationData (1084?)
+@10380 AnimationData (692?)
+---
+
+@11072 ModelHeader (32)
+@11104 ? (4)
+@11108 Model Skeleton (88)
+@11196 ModelPartHeader (32)
+@11228 ModelPartHeader (32)
+@11260 ModelPartHeader (32)
+@11292 ModelPartHeader (32)
+@11324 ModelPartHeader (32)
+@11356 ModelPartHeader (32)
+@11388 ModelPartHeader (32)
+@11420 ModelPartHeader (32)
+@11452 ModelPartHeader (32)
+@11484 ModelPartHeader (32)
+@11516 ModelPartHeader (32)
+@11548 ModelPartHeader (32)
+@11580 ModelPartHeader (32)
+@11612 ModelPartHeader (32)
+@11644 ModelPartHeader (32)
+@11676 ModelAnimationsHeader (16)
+@11692 ? (32)
+@11724 EOF

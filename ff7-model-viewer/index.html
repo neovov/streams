@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<title>FF7 Model Viewer</title>
+
+		<link rel="icon" href="data:," />
+		<link rel="stylesheet" href="./index.css" />
+
+		<script type="importmap">
+			{
+				"imports": {
+					"lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/+esm",
+					"three": "https://unpkg.com/three@latest/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+				}
+			}
+		</script>
+		<script src="./model-viewer.js" type="module"></script>
+	</head>
+	<body>
+		<canvas id="canvas" width="800" height="600"></canvas>
+	</body>
+</html>
